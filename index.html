@@ -1,0 +1,391 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Task Tracker - Django</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #eef2f7;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 750px;
+            margin: 50px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 18px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.10);
+        }
+
+        h1 {
+            text-align: center;
+            color: #243b64;
+            margin-bottom: 25px;
+        }
+
+        .form {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d4d9e1;
+            border-radius: 9px;
+            font-size: 15px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .add-btn {
+            background: #243b64;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 9px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .add-btn:hover {
+            background: #182b4b;
+        }
+
+        .task {
+            background: #f6f8fb;
+            padding: 18px;
+            margin-top: 12px;
+            border-radius: 12px;
+            border-left: 5px solid #243b64;
+        }
+
+        .task h3 {
+            margin: 0 0 8px;
+            color: #243b64;
+        }
+
+        .task p {
+            margin: 6px 0;
+            color: #555;
+        }
+
+        .status {
+            font-weight: bold;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .buttons button {
+            border: none;
+            padding: 9px 13px;
+            border-radius: 7px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .update {
+            background: #e09f3e;
+        }
+
+        .delete {
+            background: #d9534f;
+        }
+
+        .empty {
+            text-align: center;
+            color: #777;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Task Tracker</h1>
+
+    <div class="form">
+
+        <input
+            type="text"
+            id="taskName"
+            placeholder="Enter task name"
+        >
+
+        <textarea
+            id="description"
+            placeholder="Enter description"
+        ></textarea>
+
+        <select id="status">
+            <option value="Pending">Pending</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+        </select>
+
+        <button class="add-btn" onclick="addTask()">
+            + Add Task
+        </button>
+
+    </div>
+
+    <div id="taskList"></div>
+
+</div>
+
+
+<script>
+
+    const API_URL = "/";
+
+
+    // GET
+    async function loadTasks() {
+
+        try {
+
+            const response = await fetch(API_URL);
+
+            const data = await response.json();
+
+            const taskList = document.getElementById("taskList");
+
+            taskList.innerHTML = "";
+
+            if (!data.tasks || data.tasks.length === 0) {
+
+                taskList.innerHTML =
+                    '<div class="empty">No tasks available</div>';
+
+                return;
+            }
+
+
+            data.tasks.forEach(task => {
+
+                const div = document.createElement("div");
+
+                div.className = "task";
+
+                div.innerHTML = `
+
+                    <h3>${task.task_name}</h3>
+
+                    <p>
+                        <strong>Description:</strong>
+                        ${task.description || "No description"}
+                    </p>
+
+                    <p class="status">
+                        Status: ${task.status}
+                    </p>
+
+                    <div class="buttons">
+
+                        <button
+                            class="update"
+                            onclick="updateTask(${task.id}, '${escapeText(task.task_name)}', '${escapeText(task.description || "")}', '${escapeText(task.status)}')">
+                            Update
+                        </button>
+
+                        <button
+                            class="delete"
+                            onclick="deleteTask(${task.id})">
+                            Delete
+                        </button>
+
+                    </div>
+                `;
+
+                taskList.appendChild(div);
+
+            });
+
+        } catch (error) {
+
+            console.error(error);
+
+            document.getElementById("taskList").innerHTML =
+                '<div class="empty">Unable to connect to Django server</div>';
+        }
+    }
+
+
+    // POST
+    async function addTask() {
+
+        const taskName =
+            document.getElementById("taskName").value.trim();
+
+        const description =
+            document.getElementById("description").value.trim();
+
+        const status =
+            document.getElementById("status").value;
+
+
+        if (!taskName) {
+
+            alert("Please enter task name");
+
+            return;
+        }
+
+
+        await fetch(API_URL, {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+
+                task_name: taskName,
+
+                description: description,
+
+                status: status
+
+            })
+
+        });
+
+
+        document.getElementById("taskName").value = "";
+
+        document.getElementById("description").value = "";
+
+        document.getElementById("status").value = "Pending";
+
+
+        loadTasks();
+    }
+
+
+    // PUT
+    async function updateTask(
+        id,
+        oldName,
+        oldDescription,
+        oldStatus
+    ) {
+
+        const taskName =
+            prompt("Enter new task name:", oldName);
+
+        if (taskName === null) return;
+
+
+        const description =
+            prompt("Enter new description:", oldDescription);
+
+        if (description === null) return;
+
+
+        const status =
+            prompt(
+                "Enter status (Pending / In Progress / Completed):",
+                oldStatus
+            );
+
+        if (status === null) return;
+
+
+        await fetch(API_URL, {
+
+            method: "PUT",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+
+                id: id,
+
+                task_name: taskName,
+
+                description: description,
+
+                status: status
+
+            })
+
+        });
+
+
+        loadTasks();
+    }
+
+
+    // DELETE
+    async function deleteTask(id) {
+
+        if (!confirm("Delete this task?")) return;
+
+
+        await fetch(API_URL, {
+
+            method: "DELETE",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+
+                id: id
+
+            })
+
+        });
+
+
+        loadTasks();
+    }
+
+
+    function escapeText(text) {
+
+        return String(text)
+            .replace(/\\/g, "\\\\")
+            .replace(/'/g, "\\'")
+            .replace(/"/g, "&quot;")
+            .replace(/\n/g, "\\n");
+
+    }
+
+
+    // Load tasks when page opens
+    loadTasks();
+
+</script>
+
+</body>
+</html>
+```
